@@ -10,7 +10,7 @@ with open(path.join(basedir, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='simple-amqp-pubsub',
-    version='0.0.3',
+    version='0.0.4',
     description='Simple AMQP Pub/Sub lib',
     long_description=long_description,
     url='https://github.com/rudineirk/py-simple-amqp-pubsub',
