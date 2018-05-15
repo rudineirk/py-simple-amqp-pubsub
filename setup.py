@@ -26,7 +26,7 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     keywords='simple amqp pubsub',
-    packages=['simple_amqp_rpc'],
+    packages=['simple_amqp_pubsub'],
     install_requires=[
         'simple_amqp',
     ],
