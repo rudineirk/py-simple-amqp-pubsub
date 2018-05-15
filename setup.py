@@ -29,6 +29,7 @@ setup(
     packages=['simple_amqp_pubsub'],
     install_requires=[
         'simple_amqp',
+        'msgpack',
     ],
     extras_require={
         'asyncio': [
