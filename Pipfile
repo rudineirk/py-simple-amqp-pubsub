@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 simple-amqp = "*"
+msgpack = "*"
 
 [dev-packages]
 yapf = "*"
@@ -18,6 +19,7 @@ pytest-mocha = "*"
 gevent = "*"
 aio-pika = "*"
 twine = "*"
+uvloop = "*"
 
 [requires]
 python_version = "3.6"

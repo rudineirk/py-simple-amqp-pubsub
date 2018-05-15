@@ -1,18 +1,19 @@
 from typing import Any
 
-from simple_amqp_pubsub.data import Event
+from simple_amqp_pubsub.data import Event, Source
 
 
 class PubSubClient:
-    def __init__(self, pubsub: 'BasePubSub', service: str):
+    def __init__(self, pubsub: 'BasePubSub', source: Source):
         self.pubsub = pubsub
-        self.service = service
+        self.source = source
+        self._source_name = source.name
 
         self.events_cache = {}
 
     def push(self, topic: str, payload: Any):
         return self.pubsub.push_event(Event(
-            service=self.service,
+            source=self._source_name,
             topic=topic,
             payload=payload,
         ))
@@ -30,7 +31,7 @@ class PubSubClient:
 
         def publisher(payload):
             event = Event(
-                service=self.service,
+                source=self._source_name,
                 topic=name,
                 payload=payload,
             )

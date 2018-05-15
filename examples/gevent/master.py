@@ -6,15 +6,16 @@ import timeit  # noqa: E402
 from gevent import sleep  # noqa: E402
 from simple_amqp import AmqpParameters  # noqa: E402
 
+from simple_amqp_pubsub import Source  # noqa: E402
 from simple_amqp_pubsub.gevent import GeventAmqpPubSub  # noqa: E402
 
 pubsub_conn = GeventAmqpPubSub(
     params=AmqpParameters(),
-    service='logs.master',
-    enable_retries=False,
 )
 
-logs_client = pubsub_conn.client('logs.worker')
+LOGS_SOURCE = Source(name='logs')
+
+logs_client = pubsub_conn.client(LOGS_SOURCE)
 
 pubsub_conn.configure()
 pubsub_conn.start()

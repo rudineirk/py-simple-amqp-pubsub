@@ -1,7 +1,8 @@
 from abc import ABCMeta
-from typing import Callable, Tuple
+from typing import Callable, Dict, List, Set, Tuple
 
-from simple_amqp_pubsub.data import Event
+from simple_amqp_pubsub.data import Event, Pipe, Source
+from simple_amqp_pubsub.subscriber import Subscriber
 
 from .client import PubSubClient
 
@@ -13,28 +14,29 @@ class BasePubSub(metaclass=ABCMeta):
         self._listen_services = {}
         self._recv_error_handlers = set()
 
-    def listen(self, service: str, name: str=None):
-        if service not in self._listen_services:
-            self._listen_services[service] = {}
+        self._sources: Dict[str, Source] = {}
+        self._pipes: Dict[str, Pipe] = {}
+        self._handlers: Dict[Set[str], Callable] = {}
 
-        def decorator(func, name=name):
-            if name is None:
-                name = func.__name__
+    def listen(self, source: Source, pipe: Pipe, topic: str):
+        self._add_source(source)
+        self._add_pipe(pipe)
 
-            self._listen_routes[service][name] = func
+        def decorator(func):
+            self._handlers[(source.name, topic, pipe.name)] = func
             return func
 
         return decorator
 
-    def add_subscriber(self, subscriber) -> 'BasePubSub':
-        service = subscriber.sub.service
-        event_handlers = subscriber.sub.get_event_handlers(subscriber)
+    def add_subscriber(self, sub: Subscriber, servicer) -> 'BasePubSub':
+        pipe = sub.pipe
+        self._add_pipe(pipe)
 
-        if service not in self._listen_services:
-            self._listen_services[service] = {}
-
-        for event, handler in event_handlers.items():
-            self._listen_services[service][event] = handler
+        event_handlers = sub.get_event_handlers(servicer)
+        for source, topics in event_handlers.items():
+            self._add_source(source)
+            for topic, handler in topics.items():
+                self._handlers[(source.name, topic, pipe.name)] = handler
 
         return self
 
@@ -52,22 +54,26 @@ class BasePubSub(metaclass=ABCMeta):
 
     def _get_handler(
             self,
-            service: str,
-            event: str,
+            source: str,
+            topic: str,
+            pipe: str,
     ) -> Tuple[Callable, str]:
         try:
-            event_handlers = self._listen_services[service]
+            handler = self._handlers[(source, topic, pipe)]
         except KeyError:
-            msg = 'Service [{}] not found'.format(service)
-            return None, msg
-
-        try:
-            handler = event_handlers[event]
-        except KeyError:
-            msg = 'Event handler [{}->{}] not found'.format(
-                service,
-                event,
+            msg = 'Handler [{source}:{topic}->{pipe}] not found'.format(
+                source=source,
+                topic=topic,
+                pipe=pipe,
             )
             return None, msg
 
         return handler, None
+
+    def _add_source(self, source: Source):
+        if source.name not in self._sources:
+            self._sources[source.name] = source
+
+    def _add_pipe(self, pipe: Pipe):
+        if pipe.name not in self._pipes:
+            self._pipes[pipe.name] = pipe

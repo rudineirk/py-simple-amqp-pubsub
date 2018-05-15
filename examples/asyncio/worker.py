@@ -1,29 +1,35 @@
 import timeit
 from asyncio import get_event_loop, set_event_loop_policy, sleep
 
+import uvloop
 from simple_amqp import AmqpParameters
 
-import uvloop
-from simple_amqp_pubsub import Subscriber
+from simple_amqp_pubsub import Event, Pipe, Source, Subscriber
 from simple_amqp_pubsub.asyncio import AsyncioAmqpPubSub
 
 set_event_loop_policy(uvloop.EventLoopPolicy())
 
 pubsub_conn = AsyncioAmqpPubSub(
     params=AmqpParameters(),
-    service='logs.worker',
+)
+
+LOGS_SOURCE = Source(name='logs')
+LOGS_PIPE = Pipe(
+    name='logs.worker',
     retries=['5s', '10s', '30s'],
 )
 
 
 class LogService:
-    sub = Subscriber('logs.worker')
+    sub = Subscriber(LOGS_PIPE)
 
     def __init__(self):
         self._last_dt = timeit.default_timer()
 
-    @sub.listen('logs')
-    async def logs(self, log_line: str):
+    @sub.listen(LOGS_SOURCE, 'logs')
+    async def logs(self, event: Event):
+        log_line = event.payload
+
         print('## log line: ', log_line)
         time = timeit.default_timer()
         print('## dt {0:.2f}ms'.format((time - self._last_dt) * 1000))
@@ -32,7 +38,7 @@ class LogService:
 
 logs_service = LogService()
 pubsub_conn \
-    .add_subscriber(logs_service)
+    .add_subscriber(logs_service.sub, logs_service)
 
 pubsub_conn.configure()
 

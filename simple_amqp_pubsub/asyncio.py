@@ -2,7 +2,8 @@ import traceback
 
 from simple_amqp import AmqpMsg, AmqpParameters
 from simple_amqp.asyncio import AsyncioAmqpConnection
-from simple_amqp_pubsub import Event
+
+from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
 
 
@@ -17,12 +18,16 @@ class AsyncioAmqpPubSub(BaseAmqpPubSub):
         return AsyncioAmqpConnection(params)
 
     async def recv_event(self, event: Event):
-        handler, error = self._get_handler(event.service, event.topic)
+        handler, error = self._get_handler(
+            event.source,
+            event.topic,
+            event.pipe,
+        )
         if error:
             return error
 
         try:
-            await handler(event.payload)
+            await handler(event)
             return
         except Exception as e:
             if not self._recv_error_handlers:
@@ -31,13 +36,14 @@ class AsyncioAmqpPubSub(BaseAmqpPubSub):
                 for handler in self._recv_error_handlers:
                     handler(e)
 
-        if not self._enable_retries:
+        pipe = self._pipes[event.pipe]
+        if not pipe.retries_enabled:
             return 'error processing message'
 
-        await self._retry_event(event)
+        await self._retry_event(event, pipe)
 
-    async def _retry_event(self, event: Event):
-        msg = super()._retry_event(event)
+    async def _retry_event(self, event: Event, pipe: Pipe):
+        msg = super()._retry_event(event, pipe)
         if not msg:
             return
 
@@ -46,9 +52,12 @@ class AsyncioAmqpPubSub(BaseAmqpPubSub):
     async def _send_event_msg(self, msg: AmqpMsg):
         await self._publish_channel.publish(msg)
 
-    async def _on_event_message(self, msg: AmqpMsg) -> bool:
-        event = self._decode_event(msg)
-        resp = await self.recv_event(event)
-        if resp is not None:
-            return False
-        return True
+    def _on_event_message(self, pipe_name: str):
+        async def msg_handler(msg: AmqpMsg) -> bool:
+            event = self._decode_event(msg, pipe_name)
+            resp = await self.recv_event(event)
+            if resp is not None:
+                return False
+            return True
+
+        return msg_handler

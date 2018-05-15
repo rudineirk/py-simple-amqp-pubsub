@@ -1,6 +1,6 @@
-PUBSUB_EXCHANGE = 'events.{service}'
-PUBSUB_QUEUE = 'events.{service}'
+PUBSUB_EXCHANGE = 'events.{name}'
+PUBSUB_QUEUE = 'events.{name}'
 
-RETRY_EXCHANGE_NAME = 'events-retry.{service}'
-RETRY_QUEUE_NAME = 'events-retry.{time}.{service}'
-RETRY_DLX_EXCHANGE_NAME = 'events-retry-dlx.{service}'
+RETRY_EXCHANGE_NAME = 'events-retry.{name}'
+RETRY_QUEUE_NAME = 'events-retry.{time}.{name}'
+RETRY_DLX_EXCHANGE_NAME = 'events-retry-dlx.{name}'

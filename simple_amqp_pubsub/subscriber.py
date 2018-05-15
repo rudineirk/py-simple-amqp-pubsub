@@ -1,27 +1,31 @@
-class Subscriber:
-    def __init__(self, service: str):
-        self.service = service
-        self.events = {}
+from .data import Pipe, Source
 
-    def listen(self, func_name):
+
+class Subscriber:
+    def __init__(self, pipe: Pipe):
+        self.pipe = pipe
+        self.sources = {}
+
+    def listen(self, source: Source, topic: str):
         def decorator(func):
-            self._save_event_handler(func_name, func)
+            func_name = func.__name__
+            self._save_event_handler(source, func_name, func)
             return func
 
-        if isinstance(func_name, str):
-            return decorator
+        return decorator
 
-        func = func_name
-        func_name = func.__name__
-        return decorator(func)
+    def _save_event_handler(self, source: Source, topic: str, func):
+        if source not in self.sources:
+            self.sources[source] = {}
 
-    def _save_event_handler(self, event: str, func):
-        self.events[event] = func.__name__
+        self.sources[source][topic] = func.__name__
 
     def get_event_handlers(self, obj):
         handlers = {}
-        for event, func_name in self.events.items():
-            func = getattr(obj, func_name)
-            handlers[event] = func
+        for source, topics in self.sources.items():
+            handlers[source] = {}
+            for topic, func_name in topics.items():
+                func = getattr(obj, func_name)
+                handlers[source][topic] = func
 
         return handlers

@@ -1,7 +1,14 @@
 from abc import ABCMeta
-from typing import List
+from typing import Dict
 
-from simple_amqp import AmqpConnection, AmqpMsg, AmqpParameters
+from simple_amqp import (
+    AmqpChannel,
+    AmqpConnection,
+    AmqpExchange,
+    AmqpMsg,
+    AmqpParameters,
+    AmqpQueue
+)
 
 from simple_amqp_pubsub.consts import (
     PUBSUB_EXCHANGE,
@@ -10,7 +17,7 @@ from simple_amqp_pubsub.consts import (
     RETRY_EXCHANGE_NAME,
     RETRY_QUEUE_NAME
 )
-from simple_amqp_pubsub.data import Event
+from simple_amqp_pubsub.data import Event, Pipe, Source
 from simple_amqp_pubsub.encoding import decode_event, encode_event
 
 from .client import PubSubClient
@@ -37,33 +44,27 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             self,
             conn: AmqpConnection = None,
             params: AmqpParameters = None,
-            service: str='service.name',
-            retries: List[str]=None,
-            enable_retries: bool=True,
     ):
         super().__init__()
-        self.service = service
         if conn is not None:
             self.conn = conn
         else:
             self.conn = self._create_conn(params)
-        self.retries = retries \
-            if retries is not None \
-            else ['1m', '15m', '1h']
-        self._enable_retries = enable_retries
 
-        self._publish_services = set()
-        self._listen_channel = None
-        self._publish_channel = None
-        self._service_queue = None
+        self._publish_channel: AmqpChannel = None
+        self._listen_channel: AmqpChannel = None
+
+        self._exchanges: Dict[str, AmqpExchange] = {}
+        self._queues: Dict[str, AmqpQueue] = {}
 
     def _create_conn(self, params: AmqpParameters):
         raise NotImplementedError
 
     def configure(self):
-        self._create_publish()
-        self._create_listen()
-        self._create_retries()
+        self._setup_channels()
+        self._create_sources()
+        self._create_pipes()
+        self._bind_handlers()
 
     def start(self, auto_reconnect: bool=True, wait: bool=True):
         raise NotImplementedError
@@ -71,14 +72,14 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
     def stop(self):
         raise NotImplementedError
 
-    def client(self, service: str) -> PubSubClient:
-        self._publish_services.add(service)
-        return self.CLIENT_CLS(self, service)
+    def client(self, source: Source) -> PubSubClient:
+        self._add_source(source)
+        return self.CLIENT_CLS(self, source)
 
     def push_event(self, event: Event):
         msg = self._encode_event(event)
         msg = msg.replace(
-            exchange=PUBSUB_EXCHANGE.format(service=event.service),
+            exchange=PUBSUB_EXCHANGE.format(name=event.source),
             topic=event.topic,
         )
         return self._send_event_msg(msg)
@@ -89,19 +90,19 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
     def _on_event_message(self, msg: AmqpMsg):
         raise NotImplementedError
 
-    def _retry_event(self, event: Event) -> AmqpMsg:
+    def _retry_event(self, event: Event, pipe: Pipe) -> AmqpMsg:
         try:
-            retry_time = self.retries[event.retry_count]
+            retry_time = pipe.retries[event.retry_count]
         except IndexError:
             return
 
         event = event.replace(retry_count=event.retry_count+1)
         msg = self._encode_event(event)
 
-        retry_exchange = RETRY_EXCHANGE_NAME.format(service=self.service)
+        retry_exchange = RETRY_EXCHANGE_NAME.format(name=event.pipe)
         retry_queue = RETRY_QUEUE_NAME.format(
             time=retry_time,
-            service=self.service,
+            name=event.pipe,
         )
         msg = msg.replace(
             exchange=retry_exchange,
@@ -109,69 +110,77 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         )
         return msg
 
-    def _decode_event(self, msg: AmqpMsg) -> Event:
-        return decode_event(msg)
+    def _decode_event(self, msg: AmqpMsg, pipe_name: str) -> Event:
+        return decode_event(msg, pipe_name)
 
     def _encode_event(self, event: Event) -> AmqpMsg:
         return encode_event(event)
 
-    def _create_publish(self):
-        channel = self.conn.channel()
-        for service in self._publish_services:
-            exchange = PUBSUB_EXCHANGE.format(service=service)
-            channel.exchange(exchange, 'topic', durable=True)
+    def _setup_channels(self):
+        self._publish_channel = self.conn.channel()
+        self._listen_channel = self.conn.channel()
 
-        self._publish_channel = channel
-
-    def _create_listen(self):
-        channel = self.conn.channel()
-
-        queue_name = PUBSUB_QUEUE.format(service=self.service)
-        queue = channel.queue(queue_name, durable=True)
-        for service, events in self._listen_services.items():
-            exchange_name = PUBSUB_EXCHANGE.format(service=service)
-            exchange = channel \
-                .exchange(exchange_name, 'topic', durable=True)
-
-            for event in events:
-                queue.bind(exchange, event)
-
-        queue.consume(self._on_event_message)
-        self._service_queue = queue
-        self._listen_channel = channel
-
-    def _create_retries(self):
-        if not self._enable_retries:
-            return
-
+    def _create_sources(self):
         channel = self._publish_channel
+        for source in self._sources.values():
+            exchange_name = PUBSUB_EXCHANGE.format(name=source.name)
+            exchange = channel.exchange(exchange_name, 'topic', durable=True)
+
+            self._exchanges[exchange_name] = exchange
+
+    def _create_pipes(self):
+        channel = self.conn.channel()
+
+        for pipe in self._pipes.values():
+            queue_name = PUBSUB_QUEUE.format(name=pipe.name)
+            queue = channel.queue(queue_name, durable=True)
+
+            self._queues[queue_name] = queue
+
+            if pipe.retries_enabled:
+                self._create_retries(pipe, queue)
+
+    def _bind_handlers(self):
+        for source, topic, pipe in self._handlers:
+            exchange_name = PUBSUB_EXCHANGE.format(name=source)
+            exchange = self._exchanges[exchange_name]
+
+            queue_name = PUBSUB_QUEUE.format(name=pipe)
+            queue = self._queues[queue_name]
+
+            queue.bind(exchange, topic)
+            queue.consume(self._on_event_message(pipe_name=pipe))
+
+    def _create_retries(self, pipe: Pipe, queue: AmqpQueue):
+        pub_channel = self._publish_channel
+        sub_channel = self._listen_channel
 
         retry_dlx_exchange_name = RETRY_DLX_EXCHANGE_NAME \
-            .format(service=self.service)
-        retry_dlx_exchange = channel.exchange(
+            .format(name=pipe.name)
+        retry_dlx_exchange = pub_channel.exchange(
             retry_dlx_exchange_name,
             'topic',
             durable=True,
         )
 
-        retry_exchange_name = RETRY_EXCHANGE_NAME.format(service=self.service)
-        retry_exchange = channel.exchange(
+        retry_exchange_name = RETRY_EXCHANGE_NAME.format(name=pipe.name)
+        retry_exchange = pub_channel.exchange(
             retry_exchange_name,
             'topic',
             durable=True,
         )
 
-        service_exchange_name = PUBSUB_EXCHANGE.format(service=self.service)
-        service_queue_name = PUBSUB_QUEUE.format(service=self.service)
-        self._service_queue.bind(retry_dlx_exchange, service_queue_name)
+        service_exchange_name = PUBSUB_EXCHANGE.format(name=pipe.name)
+        service_queue_name = PUBSUB_QUEUE.format(name=pipe.name)
+        queue.bind(retry_dlx_exchange, service_queue_name)
 
-        for retry_time in self.retries:
+        for retry_time in pipe.retries:
             retry_queue_name = RETRY_QUEUE_NAME.format(
                 time=retry_time,
-                service=self.service,
+                name=pipe.name,
             )
 
-            retry_queue = channel.queue(
+            retry_queue = sub_channel.queue(
                 retry_queue_name,
                 durable=True,
                 props={
