@@ -4,14 +4,14 @@ monkey.patch_all()  # isort:skip
 import timeit  # noqa: E402
 
 from gevent import sleep  # noqa: E402
-
 from simple_amqp import AmqpParameters  # noqa: E402
+
 from simple_amqp_pubsub import Subscriber  # noqa: E402
 from simple_amqp_pubsub.gevent import GeventAmqpPubSub  # noqa: E402
 
 pubsub_conn = GeventAmqpPubSub(
-    AmqpParameters(),
-    'logs.worker',
+    params=AmqpParameters(),
+    service='logs.worker',
     retries=['5s', '10s', '30s'],
 )
 

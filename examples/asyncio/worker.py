@@ -1,17 +1,17 @@
 import timeit
 from asyncio import get_event_loop, set_event_loop_policy, sleep
 
-import uvloop
-
 from simple_amqp import AmqpParameters
+
+import uvloop
 from simple_amqp_pubsub import Subscriber
 from simple_amqp_pubsub.asyncio import AsyncioAmqpPubSub
 
 set_event_loop_policy(uvloop.EventLoopPolicy())
 
 pubsub_conn = AsyncioAmqpPubSub(
-    AmqpParameters(),
-    'logs.worker',
+    params=AmqpParameters(),
+    service='logs.worker',
     retries=['5s', '10s', '30s'],
 )
 

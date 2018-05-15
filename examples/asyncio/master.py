@@ -10,8 +10,8 @@ set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 pubsub_conn = AsyncioAmqpPubSub(
-    AmqpParameters(),
-    'logs.master',
+    params=AmqpParameters(),
+    service='logs.master',
     enable_retries=False,
 )
 

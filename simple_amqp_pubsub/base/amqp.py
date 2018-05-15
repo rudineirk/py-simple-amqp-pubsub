@@ -1,7 +1,8 @@
 from abc import ABCMeta
 from typing import List
 
-from simple_amqp import AmqpMsg, AmqpParameters
+from simple_amqp import AmqpConnection, AmqpMsg, AmqpParameters
+
 from simple_amqp_pubsub.consts import (
     PUBSUB_EXCHANGE,
     PUBSUB_QUEUE,
@@ -34,14 +35,18 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
 
     def __init__(
             self,
-            params: AmqpParameters,
+            conn: AmqpConnection = None,
+            params: AmqpParameters = None,
             service: str='service.name',
             retries: List[str]=None,
             enable_retries: bool=True,
     ):
         super().__init__()
         self.service = service
-        self.conn = self._create_conn(params)
+        if conn is not None:
+            self.conn = conn
+        else:
+            self.conn = self._create_conn(params)
         self.retries = retries \
             if retries is not None \
             else ['1m', '15m', '1h']
