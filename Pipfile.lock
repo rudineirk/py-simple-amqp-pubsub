@@ -46,10 +46,10 @@
         },
         "simple-amqp": {
             "hashes": [
-                "sha256:f9c58080d1a5350c6c612262bf982ece79567e3b9bcbf05a67209af2166cbc72"
+                "sha256:a6865c21496f3dd74c280cd6633498b8f2c4c0569b4363dd2f9f913216d01b97"
             ],
             "index": "pypi",
-            "version": "==0.0.2"
+            "version": "==0.1.0"
         }
     },
     "develop": {
@@ -434,11 +434,11 @@
         },
         "yapf": {
             "hashes": [
-                "sha256:7d8ae3567f3fb2d288f127d35e4decb3348c96cd091001e02e818465da618f90",
-                "sha256:dd23b52edbb4c0461d0383050f7886175b0df9ab8fd0b67edd41f94e25770993"
+                "sha256:6567745f0b6656f9c33a73c56a393071c699e6284a70d793798ab6e3769d25ec",
+                "sha256:a98a6eacca64d2b920558f4a2f78150db9474de821227e60deaa29f186121c63"
             ],
             "index": "pypi",
-            "version": "==0.21.0"
+            "version": "==0.22.0"
         },
         "yarl": {
             "hashes": [
