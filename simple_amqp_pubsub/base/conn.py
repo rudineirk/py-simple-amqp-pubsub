@@ -2,7 +2,7 @@ from abc import ABCMeta
 from typing import Callable, Dict, Set, Tuple
 
 from simple_amqp_pubsub.data import Event, Pipe, Source
-from simple_amqp_pubsub.log import logger
+from simple_amqp_pubsub.log import setup_logger
 from simple_amqp_pubsub.subscriber import Subscriber
 
 from .client import PubSubClient
@@ -11,14 +11,14 @@ from .client import PubSubClient
 class BasePubSub(metaclass=ABCMeta):
     CLIENT_CLS = PubSubClient
 
-    def __init__(self):
+    def __init__(self, logger=None):
         self._listen_services = {}
         self._recv_error_handlers = set()
 
         self._sources: Dict[str, Source] = {}
         self._pipes: Dict[str, Pipe] = {}
         self._handlers: Dict[Set[str], Callable] = {}
-        self.log = logger
+        self.log = logger if logger is not None else setup_logger()
 
     def listen(self, source: Source, pipe: Pipe, topic: str):
         self._add_source(source)

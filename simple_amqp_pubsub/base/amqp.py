@@ -44,8 +44,9 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             self,
             conn: AmqpConnection = None,
             params: AmqpParameters = None,
+            logger=None,
     ):
-        super().__init__()
+        super().__init__(logger=logger)
         if conn is not None:
             self.conn = conn
         else:
