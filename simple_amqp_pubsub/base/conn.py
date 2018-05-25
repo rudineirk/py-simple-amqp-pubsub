@@ -1,7 +1,8 @@
 from abc import ABCMeta
-from typing import Callable, Dict, List, Set, Tuple
+from typing import Callable, Dict, Set, Tuple
 
 from simple_amqp_pubsub.data import Event, Pipe, Source
+from simple_amqp_pubsub.log import logger
 from simple_amqp_pubsub.subscriber import Subscriber
 
 from .client import PubSubClient
@@ -17,6 +18,7 @@ class BasePubSub(metaclass=ABCMeta):
         self._sources: Dict[str, Source] = {}
         self._pipes: Dict[str, Pipe] = {}
         self._handlers: Dict[Set[str], Callable] = {}
+        self.log = logger
 
     def listen(self, source: Source, pipe: Pipe, topic: str):
         self._add_source(source)
@@ -48,6 +50,18 @@ class BasePubSub(metaclass=ABCMeta):
 
     def recv_event(self, event: Event):
         raise NotImplementedError
+
+    def log_event_recv(self, event: Event):
+        self.log.info('event received [{}:{}]'.format(
+            event.source,
+            event.topic,
+        ))
+
+    def log_event_sent(self, event: Event):
+        self.log.info('sending event [{}:{}]'.format(
+            event.source,
+            event.topic,
+        ))
 
     def add_recv_event_error_handler(self, handler):
         self._recv_error_handlers.add(handler)

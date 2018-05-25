@@ -77,6 +77,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         return self.CLIENT_CLS(self, source)
 
     def push_event(self, event: Event):
+        self.log_event_sent(event)
         msg = self._encode_event(event)
         msg = msg.replace(
             exchange=PUBSUB_EXCHANGE.format(name=event.source),

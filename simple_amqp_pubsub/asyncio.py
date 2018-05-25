@@ -18,6 +18,7 @@ class AsyncioAmqpPubSub(BaseAmqpPubSub):
         return AsyncioAmqpConnection(params)
 
     async def recv_event(self, event: Event):
+        self.log_event_recv(event)
         handler, error = self._get_handler(
             event.source,
             event.topic,
