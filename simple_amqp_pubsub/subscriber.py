@@ -8,8 +8,7 @@ class Subscriber:
 
     def listen(self, source: Source, topic: str):
         def decorator(func):
-            func_name = func.__name__
-            self._save_event_handler(source, func_name, func)
+            self._save_event_handler(source, topic, func)
             return func
 
         return decorator
