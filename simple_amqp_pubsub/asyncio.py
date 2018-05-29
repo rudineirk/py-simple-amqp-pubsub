@@ -2,7 +2,6 @@ import traceback
 
 from simple_amqp import AmqpMsg, AmqpParameters
 from simple_amqp.asyncio import AsyncioAmqpConnection
-
 from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
 

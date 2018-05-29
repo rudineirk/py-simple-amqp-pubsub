@@ -2,7 +2,6 @@ import traceback
 
 from simple_amqp import AmqpMsg, AmqpParameters
 from simple_amqp.gevent import GeventAmqpConnection
-
 from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
 

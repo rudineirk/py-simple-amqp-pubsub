@@ -20,6 +20,7 @@ class Event(Data):
 @dataclass(frozen=True)
 class Source(Data):
     name: str
+    durable: bool = False
 
 
 @dataclass(frozen=True)
@@ -30,3 +31,4 @@ class Pipe(Data):
         default_factory=lambda: ['1m', '15m', '1h'],
     )
     exclusive: bool = False
+    durable: bool = False

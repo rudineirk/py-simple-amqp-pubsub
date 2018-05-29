@@ -9,7 +9,6 @@ from simple_amqp import (
     AmqpParameters,
     AmqpQueue
 )
-
 from simple_amqp_pubsub.consts import (
     PUBSUB_EXCHANGE,
     PUBSUB_QUEUE,
@@ -126,7 +125,11 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         channel = self._publish_channel
         for source in self._sources.values():
             exchange_name = PUBSUB_EXCHANGE.format(name=source.name)
-            exchange = channel.exchange(exchange_name, 'topic', durable=True)
+            exchange = channel.exchange(
+                exchange_name,
+                'topic',
+                durable=source.durable,
+            )
 
             self._exchanges[exchange_name] = exchange
 
@@ -135,7 +138,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
 
         for pipe in self._pipes.values():
             queue_name = PUBSUB_QUEUE.format(name=pipe.name)
-            queue = channel.queue(queue_name, durable=True)
+            queue = channel.queue(queue_name, durable=pipe.durable)
 
             self._queues[queue_name] = queue
 
@@ -162,14 +165,14 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         retry_dlx_exchange = pub_channel.exchange(
             retry_dlx_exchange_name,
             'topic',
-            durable=True,
+            durable=pipe.durable,
         )
 
         retry_exchange_name = RETRY_EXCHANGE_NAME.format(name=pipe.name)
         retry_exchange = pub_channel.exchange(
             retry_exchange_name,
             'topic',
-            durable=True,
+            durable=pipe.durable,
         )
 
         service_exchange_name = PUBSUB_EXCHANGE.format(name=pipe.name)
@@ -184,7 +187,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
 
             retry_queue = sub_channel.queue(
                 retry_queue_name,
-                durable=True,
+                durable=pipe.durable,
                 props={
                     'x-message-ttl': transform_retry_time(retry_time),
                     'x-dead-letter-exchange': retry_dlx_exchange_name,

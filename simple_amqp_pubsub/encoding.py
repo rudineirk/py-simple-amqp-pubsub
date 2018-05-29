@@ -1,4 +1,5 @@
 import msgpack
+
 from simple_amqp import AmqpMsg
 
 from .data import Event
