@@ -51,8 +51,8 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         else:
             self.conn = self._create_conn(params)
 
-        self._publish_channel: AmqpChannel = None
-        self._listen_channel: AmqpChannel = None
+        self._publish_channels: Dict[str, AmqpChannel] = {}
+        self._listen_channels: Dict[str, AmqpChannel] = {}
 
         self._exchanges: Dict[str, AmqpExchange] = {}
         self._queues: Dict[str, AmqpQueue] = {}
@@ -61,7 +61,6 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         raise NotImplementedError
 
     def configure(self):
-        self._setup_channels()
         self._create_sources()
         self._create_pipes()
         self._bind_handlers()
@@ -83,9 +82,10 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             exchange=PUBSUB_EXCHANGE.format(name=event.source),
             topic=event.topic,
         )
-        return self._send_event_msg(msg)
+        channel = self._publish_channels[event.source]
+        return self._send_event_msg(channel, msg)
 
-    def _send_event_msg(self, msg: AmqpMsg):
+    def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
         raise NotImplementedError
 
     def _on_event_message(self, msg: AmqpMsg):
@@ -117,13 +117,10 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
     def _encode_event(self, event: Event) -> AmqpMsg:
         return encode_event(event)
 
-    def _setup_channels(self):
-        self._publish_channel = self.conn.channel()
-        self._listen_channel = self.conn.channel()
-
     def _create_sources(self):
-        channel = self._publish_channel
         for source in self._sources.values():
+            channel = self.conn.channel()
+            self._publish_channels[source.name] = channel
             exchange_name = PUBSUB_EXCHANGE.format(name=source.name)
             exchange = channel.exchange(
                 exchange_name,
@@ -134,9 +131,9 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             self._exchanges[exchange_name] = exchange
 
     def _create_pipes(self):
-        channel = self.conn.channel()
-
         for pipe in self._pipes.values():
+            channel = self.conn.channel()
+            self._listen_channels[pipe.name] = channel
             queue_name = PUBSUB_QUEUE.format(name=pipe.name)
             queue = channel.queue(queue_name, durable=pipe.durable)
 
@@ -157,19 +154,18 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             queue.consume(self._on_event_message(pipe_name=pipe))
 
     def _create_retries(self, pipe: Pipe, queue: AmqpQueue):
-        pub_channel = self._publish_channel
-        sub_channel = self._listen_channel
+        channel = self._listen_channels[pipe.name]
 
         retry_dlx_exchange_name = RETRY_DLX_EXCHANGE_NAME \
             .format(name=pipe.name)
-        retry_dlx_exchange = pub_channel.exchange(
+        retry_dlx_exchange = channel.exchange(
             retry_dlx_exchange_name,
             'topic',
             durable=pipe.durable,
         )
 
         retry_exchange_name = RETRY_EXCHANGE_NAME.format(name=pipe.name)
-        retry_exchange = pub_channel.exchange(
+        retry_exchange = channel.exchange(
             retry_exchange_name,
             'topic',
             durable=pipe.durable,
@@ -185,7 +181,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
                 name=pipe.name,
             )
 
-            retry_queue = sub_channel.queue(
+            retry_queue = channel.queue(
                 retry_queue_name,
                 durable=pipe.durable,
                 props={

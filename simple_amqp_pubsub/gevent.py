@@ -1,6 +1,6 @@
 import traceback
 
-from simple_amqp import AmqpMsg, AmqpParameters
+from simple_amqp import AmqpChannel, AmqpMsg, AmqpParameters
 from simple_amqp.gevent import GeventAmqpConnection
 from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
@@ -49,8 +49,8 @@ class GeventAmqpPubSub(BaseAmqpPubSub):
 
         self._send_event_msg(msg)
 
-    def _send_event_msg(self, msg: AmqpMsg):
-        self._publish_channel.publish(msg)
+    def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
+        channel.publish(msg)
 
     def _on_event_message(self, pipe_name: str):
         def msg_handler(msg: AmqpMsg) -> bool:
