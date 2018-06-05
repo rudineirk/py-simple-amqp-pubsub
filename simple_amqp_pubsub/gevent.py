@@ -47,7 +47,8 @@ class GeventAmqpPubSub(BaseAmqpPubSub):
         if not msg:
             return
 
-        self._send_event_msg(msg)
+        channel = self._listen_channels[pipe.name]
+        self._send_event_msg(channel, msg)
 
     def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
         channel.publish(msg)

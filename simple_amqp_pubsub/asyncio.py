@@ -47,7 +47,8 @@ class AsyncioAmqpPubSub(BaseAmqpPubSub):
         if not msg:
             return
 
-        await self._send_event_msg(msg)
+        channel = self._listen_channels[pipe.name]
+        await self._send_event_msg(channel, msg)
 
     async def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
         await channel.publish(msg)
