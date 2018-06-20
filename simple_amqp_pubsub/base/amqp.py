@@ -52,9 +52,9 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         else:
             self.conn = self._create_conn(params)
 
-        self.stage_setup_name = '4:pubsub.setup'
+        self.stage_setup_name = '1:pubsub.setup'
         self._stage_setup = None
-        self.stage_listen_name = '8:pubsub.listen'
+        self.stage_listen_name = '2:pubsub.listen'
         self._stage_listen = None
 
         self._publish_channels: Dict[str, AmqpChannel] = {}
@@ -72,7 +72,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         self._create_pipes()
         self._bind_handlers()
 
-    def start(self, auto_reconnect: bool=True, wait: bool=True):
+    def start(self, auto_reconnect: bool=True):
         raise NotImplementedError
 
     def stop(self):

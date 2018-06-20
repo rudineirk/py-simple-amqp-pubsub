@@ -8,10 +8,10 @@ from simple_amqp_pubsub.base import BaseAmqpPubSub
 
 
 class AsyncioAmqpPubSub(BaseAmqpPubSub):
-    async def start(self, auto_reconnect: bool=True, wait: bool=True):
-        await self.conn.start(auto_reconnect, wait)
-        for _ in self.conn.stages[1:]:
-            await self.conn.next_stage()
+    async def start(self, auto_reconnect: bool=True):
+        self.conn.add_stage(self._stage_setup)
+        self.conn.add_stage(self._stage_listen)
+        await self.conn.start(auto_reconnect)
 
     async def stop(self):
         await self.conn.stop()
