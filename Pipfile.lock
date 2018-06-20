@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1f2845766a9e8e251b3e5df2e3acb0fbd06eac44c2bdd4b0ce4c9d741c0ade73"
+            "sha256": "a2e02e232849c92d905faf5aca010d5236f10be259a500823c02072d1696342b"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -46,10 +46,10 @@
         },
         "simple-amqp": {
             "hashes": [
-                "sha256:4557b4b6066b009d6270601ffc789c20d29b25e04dd9a2ee07f42de210c144a0"
+                "sha256:2da75c7a69ef6c0998effb19bab93272524eb7c26a22bc6ac10529b994d06a97"
             ],
             "index": "pypi",
-            "version": "==0.2.1"
+            "version": "==0.2.3"
         }
     },
     "develop": {
