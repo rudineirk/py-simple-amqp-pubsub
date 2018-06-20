@@ -2,6 +2,7 @@ import traceback
 
 from simple_amqp import AmqpChannel, AmqpMsg, AmqpParameters
 from simple_amqp.gevent import GeventAmqpConnection
+
 from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
 
@@ -9,6 +10,8 @@ from simple_amqp_pubsub.base import BaseAmqpPubSub
 class GeventAmqpPubSub(BaseAmqpPubSub):
     def start(self, auto_reconnect: bool=True, wait: bool=True):
         self.conn.start(auto_reconnect, wait)
+        for _ in self.conn.stages[1:]:
+            self.conn.next_stage()
 
     def stop(self):
         self.conn.stop()

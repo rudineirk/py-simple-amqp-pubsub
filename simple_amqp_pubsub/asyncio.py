@@ -2,6 +2,7 @@ import traceback
 
 from simple_amqp import AmqpChannel, AmqpMsg, AmqpParameters
 from simple_amqp.asyncio import AsyncioAmqpConnection
+
 from simple_amqp_pubsub import Event, Pipe
 from simple_amqp_pubsub.base import BaseAmqpPubSub
 
@@ -9,6 +10,8 @@ from simple_amqp_pubsub.base import BaseAmqpPubSub
 class AsyncioAmqpPubSub(BaseAmqpPubSub):
     async def start(self, auto_reconnect: bool=True, wait: bool=True):
         await self.conn.start(auto_reconnect, wait)
+        for _ in self.conn.stages[1:]:
+            await self.conn.next_stage()
 
     async def stop(self):
         await self.conn.stop()

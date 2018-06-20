@@ -9,6 +9,7 @@ from simple_amqp import (
     AmqpParameters,
     AmqpQueue
 )
+
 from simple_amqp_pubsub.consts import (
     PUBSUB_EXCHANGE,
     PUBSUB_QUEUE,
@@ -51,6 +52,11 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         else:
             self.conn = self._create_conn(params)
 
+        self.stage_setup_name = '4:pubsub.setup'
+        self._stage_setup = None
+        self.stage_listen_name = '8:pubsub.listen'
+        self._stage_listen = None
+
         self._publish_channels: Dict[str, AmqpChannel] = {}
         self._listen_channels: Dict[str, AmqpChannel] = {}
 
@@ -61,6 +67,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         raise NotImplementedError
 
     def configure(self):
+        self._configure_stages()
         self._create_sources()
         self._create_pipes()
         self._bind_handlers()
@@ -117,25 +124,34 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
     def _encode_event(self, event: Event) -> AmqpMsg:
         return encode_event(event)
 
+    def _configure_stages(self):
+        self._stage_setup = self.conn.stage(self.stage_setup_name)
+        self._stage_listen = self.conn.stage(self.stage_listen_name)
+
     def _create_sources(self):
         for source in self._sources.values():
-            channel = self.conn.channel()
+            channel = self.conn.channel(stage=self._stage_setup)
             self._publish_channels[source.name] = channel
             exchange_name = PUBSUB_EXCHANGE.format(name=source.name)
             exchange = channel.exchange(
                 exchange_name,
                 'topic',
                 durable=source.durable,
+                stage=self._stage_setup,
             )
 
             self._exchanges[exchange_name] = exchange
 
     def _create_pipes(self):
         for pipe in self._pipes.values():
-            channel = self.conn.channel()
+            channel = self.conn.channel(stage=self._stage_setup)
             self._listen_channels[pipe.name] = channel
             queue_name = PUBSUB_QUEUE.format(name=pipe.name)
-            queue = channel.queue(queue_name, durable=pipe.durable)
+            queue = channel.queue(
+                queue_name,
+                durable=pipe.durable,
+                stage=self._stage_setup,
+            )
 
             self._queues[queue_name] = queue
 
@@ -150,8 +166,11 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             queue_name = PUBSUB_QUEUE.format(name=pipe)
             queue = self._queues[queue_name]
 
-            queue.bind(exchange, topic)
-            queue.consume(self._on_event_message(pipe_name=pipe))
+            queue.bind(exchange, topic, stage=self._stage_setup)
+            queue.consume(
+                self._on_event_message(pipe_name=pipe),
+                stage=self._stage_listen,
+            )
 
     def _create_retries(self, pipe: Pipe, queue: AmqpQueue):
         channel = self._listen_channels[pipe.name]
@@ -162,6 +181,7 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             retry_dlx_exchange_name,
             'topic',
             durable=pipe.durable,
+            stage=self._stage_setup,
         )
 
         retry_exchange_name = RETRY_EXCHANGE_NAME.format(name=pipe.name)
@@ -169,11 +189,16 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             retry_exchange_name,
             'topic',
             durable=pipe.durable,
+            stage=self._stage_setup,
         )
 
         service_exchange_name = PUBSUB_EXCHANGE.format(name=pipe.name)
         service_queue_name = PUBSUB_QUEUE.format(name=pipe.name)
-        queue.bind(retry_dlx_exchange, service_queue_name)
+        queue.bind(
+            retry_dlx_exchange,
+            service_queue_name,
+            stage=self._stage_setup,
+        )
 
         for retry_time in pipe.retries:
             retry_queue_name = RETRY_QUEUE_NAME.format(
@@ -189,5 +214,10 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
                     'x-dead-letter-exchange': retry_dlx_exchange_name,
                     'x-dead-letter-routing-key': service_exchange_name,
                 },
+                stage=self._stage_setup,
             )
-            retry_queue.bind(retry_exchange, retry_queue_name)
+            retry_queue.bind(
+                retry_exchange,
+                retry_queue_name,
+                stage=self._stage_setup,
+            )
