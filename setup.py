@@ -29,7 +29,7 @@ setup(
     keywords='simple amqp pubsub',
     packages=['simple_amqp_pubsub', 'simple_amqp_pubsub.base'],
     install_requires=[
-        'simple_amqp',
+        'simple_amqp>=0.2.1',
         'msgpack',
     ],
     extras_require={

@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-simple-amqp = "*"
+simple-amqp = ">=0.2.1"
 msgpack = "*"
 
 [dev-packages]
@@ -20,6 +20,7 @@ gevent = "*"
 aio-pika = "*"
 twine = "*"
 uvloop = "*"
+greenlet = "*"
 
 [requires]
 python_version = "3.6"
