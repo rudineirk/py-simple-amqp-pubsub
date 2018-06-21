@@ -9,8 +9,8 @@ from simple_amqp_pubsub.base import BaseAmqpPubSub
 
 class GeventAmqpPubSub(BaseAmqpPubSub):
     def start(self, auto_reconnect: bool=True):
-        self.conn.add_stage(self._stage_setup)
-        self.conn.add_stage(self._stage_listen)
+        self.conn.add_stage(self.setup_stage)
+        self.conn.add_stage(self.listen_stage)
         self.conn.start(auto_reconnect)
 
     def stop(self):
