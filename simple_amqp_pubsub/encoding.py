@@ -1,4 +1,4 @@
-import msgpack
+import json
 
 from simple_amqp import AmqpMsg
 
@@ -8,11 +8,12 @@ CONTENT_TYPE_MSGPACK = 'application/msgpack'
 
 
 def encode_event(event: Event) -> AmqpMsg:
-    payload = msgpack.packb({
+    payload = json.dumps({
         'source': event.source,
         'topic': event.topic,
         'payload': event.payload,
     })
+    payload = payload.encode('utf8')
     headers = {}
     if event.retry_count > 0:
         headers['retry_count'] = event.retry_count
@@ -25,7 +26,7 @@ def encode_event(event: Event) -> AmqpMsg:
 
 
 def decode_event(msg: AmqpMsg, pipe_name: str) -> Event:
-    payload = msgpack.unpackb(msg.payload, encoding='utf8')
+    payload = json.loads(msg.payload)
     retry_count = msg.headers.get('retry_count', 0)
 
     return Event(

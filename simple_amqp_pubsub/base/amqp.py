@@ -52,6 +52,9 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
         else:
             self.conn = self._create_conn(params)
 
+        self._encoders = {'json': encode_event}
+        self._decoders = {'json': decode_event}
+
         self.stage_setup_name = '1:pubsub.setup'
         self._stage_setup = None
         self.stage_listen_name = '2:pubsub.listen'
@@ -84,13 +87,21 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
 
     def push_event(self, event: Event):
         self.log_event_sent(event)
-        msg = self._encode_event(event)
+        source = self._sources[event.source]
+        encoder = self._encoders[source.encoding]
+        msg = encoder(event)
         msg = msg.replace(
             exchange=PUBSUB_EXCHANGE.format(name=event.source),
             topic=event.topic,
         )
         channel = self._publish_channels[event.source]
         return self._send_event_msg(channel, msg)
+
+    def add_encoder(self, name: str, encoder):
+        self._encoders[name] = encoder
+
+    def add_decoder(self, name: str, decoder):
+        self._decoders[name] = decoder
 
     def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
         raise NotImplementedError
@@ -117,12 +128,6 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             topic=retry_queue,
         )
         return msg
-
-    def _decode_event(self, msg: AmqpMsg, pipe_name: str) -> Event:
-        return decode_event(msg, pipe_name)
-
-    def _encode_event(self, event: Event) -> AmqpMsg:
-        return encode_event(event)
 
     def _configure_stages(self):
         self._stage_setup = self.conn.stage(self.stage_setup_name)
@@ -159,18 +164,21 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
                 self._create_retries(pipe, queue)
 
     def _bind_handlers(self):
-        for source, topic, pipe in self._handlers:
-            exchange_name = PUBSUB_EXCHANGE.format(name=source)
+        for source_name, topic, pipe_name in self._handlers:
+            exchange_name = PUBSUB_EXCHANGE.format(name=source_name)
             exchange = self._exchanges[exchange_name]
 
-            queue_name = PUBSUB_QUEUE.format(name=pipe)
+            queue_name = PUBSUB_QUEUE.format(name=pipe_name)
             queue = self._queues[queue_name]
 
             queue.bind(exchange, topic, stage=self._stage_setup)
-            queue.consume(
-                self._on_event_message(pipe_name=pipe),
-                stage=self._stage_listen,
+
+            source = self._sources[source_name]
+            handler = self._on_event_message(
+                pipe_name=pipe_name,
+                decoder=self._decoders[source.encoding],
             )
+            queue.consume(handler, stage=self._stage_listen)
 
     def _create_retries(self, pipe: Pipe, queue: AmqpQueue):
         channel = self._listen_channels[pipe.name]

@@ -56,9 +56,9 @@ class GeventAmqpPubSub(BaseAmqpPubSub):
     def _send_event_msg(self, channel: AmqpChannel, msg: AmqpMsg):
         channel.publish(msg)
 
-    def _on_event_message(self, pipe_name: str):
+    def _on_event_message(self, pipe_name: str, decoder):
         def msg_handler(msg: AmqpMsg) -> bool:
-            event = self._decode_event(msg, pipe_name)
+            event = decoder(msg, pipe_name)
             resp = self.recv_event(event)
             if resp is not None:
                 return False

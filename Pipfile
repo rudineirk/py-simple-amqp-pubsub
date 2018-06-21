@@ -5,7 +5,6 @@ name = "pypi"
 
 [packages]
 simple-amqp = ">=0.2.3"
-msgpack = "*"
 
 [dev-packages]
 yapf = "*"

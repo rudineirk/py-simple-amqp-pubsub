@@ -21,6 +21,7 @@ class Event(Data):
 class Source(Data):
     name: str
     durable: bool = False
+    encoding: str = 'json'
 
 
 @dataclass(frozen=True)
