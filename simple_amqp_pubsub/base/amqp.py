@@ -116,13 +116,16 @@ class BaseAmqpPubSub(BasePubSub, metaclass=ABCMeta):
             return
 
         event = event.replace(retry_count=event.retry_count+1)
-        msg = self._encode_event(event)
+        source = self._sources[event.source]
+        encoder = self._encoders[source.encoding]
 
         retry_exchange = RETRY_EXCHANGE_NAME.format(name=event.pipe)
         retry_queue = RETRY_QUEUE_NAME.format(
             time=retry_time,
             name=event.pipe,
         )
+
+        msg = encoder(event)
         msg = msg.replace(
             exchange=retry_exchange,
             topic=retry_queue,
